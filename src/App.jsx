@@ -7,6 +7,7 @@ import {
   CheckCircle2,
   ArrowRight,
   ArrowDown,
+  ArrowLeft,
   Layers,
   Briefcase,
   Award,
@@ -77,6 +78,13 @@ export default function App() {
   const [isMuted, setIsMuted] = useState(true);
   const [slideProgress, setSlideProgress] = useState(0);
   const [slideCycleKey, setSlideCycleKey] = useState(0);
+  // Per-slide progress tracking (each slide remembers its completed progress)
+  const [slideProgressArray, setSlideProgressArray] = useState(() => 
+    Array(config.heroSlides?.length || 0).fill(0)
+  );
+  // Refs for interval to avoid stale closures
+  const currentSlideRef = useRef(0);
+  currentSlideRef.current = currentSlide;
 
   const videoRefs = useRef([]);
   const elapsedRef = useRef(0);
@@ -113,6 +121,15 @@ export default function App() {
   // Phase drawer/modal state
   const [openPhaseId, setOpenPhaseId] = useState(null);
 
+  // Projects Carousel State
+  const [currentProjectSlide, setCurrentProjectSlide] = useState(0);
+  const [isProjectsPaused, setIsProjectsPaused] = useState(false);
+  const [projectSlideProgress, setProjectSlideProgress] = useState(0);
+  const projectSlideTimerRef = useRef(null);
+  const projectElapsedRef = useRef(0);
+  const touchStartRef = useRef(0);
+  const PROJECT_SLIDE_DURATION = 3000; // 5s per slide
+
   // Detect scroll for transparent -> backdrop-blur header transition
   useEffect(() => {
     const handleScroll = () => {
@@ -137,17 +154,33 @@ export default function App() {
       const progressPercent = Math.min((elapsedRef.current / SLIDE_DURATION) * 100, 100);
       setSlideProgress(progressPercent);
 
+      // Update per-slide progress array - current slide animates, completed stay at 100
+      setSlideProgressArray(prev => {
+        const next = [...prev];
+        const currentIdx = currentSlideRef.current;
+        next[currentIdx] = progressPercent;
+        return next;
+      });
+
       if (elapsedRef.current >= SLIDE_DURATION) {
         elapsedRef.current = 0;
         setSlideProgress(0);
+        // Lock current slide progress at 100% when completed
+        setSlideProgressArray(prev => {
+          const next = [...prev];
+          const currentIdx = currentSlideRef.current;
+          next[currentIdx] = 100;
+          return next;
+        });
         setCurrentSlide((prev) => (prev + 1) % config.heroSlides.length);
+        setSlideCycleKey((prev) => prev + 1);
       }
     }, stepTime);
 
     return () => {
       if (timerRef.current) clearInterval(timerRef.current);
     };
-  }, [currentSlide, slideCycleKey, isHeroPaused, config.heroSlides?.length]);
+  }, [slideCycleKey, isHeroPaused, config.heroSlides?.length]);
 
   // Control video playback - only play active slide video, respect pause
   useEffect(() => {
@@ -161,6 +194,63 @@ export default function App() {
       }
     });
   }, [currentSlide, isHeroPaused, isMuted]);
+
+  // Sync slideProgressArray length with heroSlides
+  useEffect(() => {
+    const slideCount = config.heroSlides?.length || 0;
+    setSlideProgressArray(prev => {
+      if (prev.length !== slideCount) {
+        return Array(slideCount).fill(0);
+      }
+      return prev;
+    });
+  }, [config.heroSlides?.length]);
+
+  // Auto-advance Projects Carousel every 5s with progress animation
+  useEffect(() => {
+    const projects = config.previousProjects?.projects || [];
+    if (!projects.length) return;
+    if (isProjectsPaused) {
+      if (projectSlideTimerRef.current) clearInterval(projectSlideTimerRef.current);
+      return;
+    }
+
+    const stepTime = 30; // 33fps update for smooth fill animation
+    projectSlideTimerRef.current = setInterval(() => {
+      projectElapsedRef.current += stepTime;
+      const progressPercent = Math.min((projectElapsedRef.current / PROJECT_SLIDE_DURATION) * 100, 100);
+      setProjectSlideProgress(progressPercent);
+
+      if (projectElapsedRef.current >= PROJECT_SLIDE_DURATION) {
+        projectElapsedRef.current = 0;
+        setProjectSlideProgress(0);
+        setCurrentProjectSlide((prev) => (prev + 1) % projects.length);
+      }
+    }, stepTime);
+
+    return () => {
+      if (projectSlideTimerRef.current) clearInterval(projectSlideTimerRef.current);
+    };
+  }, [currentProjectSlide, isProjectsPaused, config.previousProjects?.projects?.length]);
+
+  const goToProjectSlide = (idx) => {
+    projectElapsedRef.current = 0;
+    setProjectSlideProgress(0);
+    setCurrentProjectSlide(idx);
+  };
+
+  // Keyboard navigation for Projects Carousel
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === 'ArrowLeft') {
+        goToProjectSlide((currentProjectSlide - 1 + config.previousProjects.projects.length) % config.previousProjects.projects.length);
+      } else if (e.key === 'ArrowRight') {
+        goToProjectSlide((currentProjectSlide + 1) % config.previousProjects.projects.length);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [currentProjectSlide, config.previousProjects.projects.length]);
 
   const openCheckout = (trackTitle) => {
     setIsMobileMenuOpen(false);
@@ -176,6 +266,10 @@ export default function App() {
     setSlideProgress(0);
     setCurrentSlide(idx);
     setSlideCycleKey((prev) => prev + 1);
+    // Reset progress array: slides before target = 100%, target = 0%, after = 0%
+    setSlideProgressArray(prev => 
+      prev.map((_, i) => i < idx ? 100 : 0)
+    );
   };
 
   const openPhaseDrawer = (phaseId) => {
@@ -501,7 +595,7 @@ export default function App() {
             <div className="grid grid-cols-4 gap-2 sm:gap-3 flex-1 max-w-2xl">
               {config.heroSlides.map((slide, idx) => {
                 const active = idx === currentSlide;
-                const completed = idx < currentSlide;
+                const progress = slideProgressArray[idx] || 0;
                 return (
                   <button
                     key={slide.id}
@@ -509,33 +603,28 @@ export default function App() {
                     className="text-left group cursor-pointer focus:outline-none relative"
                   >
                     <div className="h-1.5 w-full rounded-full bg-white/20 overflow-hidden mb-2 relative">
-                      {/* Animated progress bar - ONLY on active slide, fills over 6.5s */}
-                      {active && (
-                        <div
-                          className="absolute top-0 left-0 h-full rounded-full bg-gradient-to-r from-blue-400 to-purple-400 origin-left"
-                          style={{
-                            transform: `scaleX(${slideProgress / 100})`,
-                            transformOrigin: 'left center',
-                            transition: 'transform 0.1s linear',
-                          }}
-                        />
-                      )}
-                      {/* Static fill for completed slides */}
-                      {completed && (
-                        <div className="absolute top-0 left-0 h-full w-full rounded-full bg-gradient-to-r from-blue-400 to-purple-400" />
-                      )}
+                      {/* Per-slide animated progress bar - each slide tracks its own progress */}
+                      <div
+                        className="absolute top-0 left-0 w-full h-full rounded-full bg-gradient-to-r from-blue-400 to-purple-400 origin-left transition-all duration-300 ease-out"
+                        style={{
+                          transform: `scaleX(${progress / 100})`,
+                          transformOrigin: 'left center',
+                        }}
+                      />
                     </div>
-                    <div className="hidden sm:flex items-center gap-1.5">
+                    {/* <div className="hidden sm:flex items-center gap-1.5">
                       <span
                         className={`text-[11px] font-bold uppercase tracking-wider truncate ${
                           active
                             ? "text-white"
+                            : progress === 100
+                            ? "text-blue-300"
                             : "text-white/50"
                         }`}
                       >
                         0{idx + 1}. {slide.type}
                       </span>
-                    </div>
+                    </div> */}
                   </button>
                 );
               })}
@@ -710,127 +799,67 @@ export default function App() {
           SECTION 3: 7 PRACTICAL ABILITIES ("BEYOND JUST USING AI")
           FLOW LAYOUT WITH ARROWS CONNECTING ABILITIES
       ===================================================================== */}
-      <section
-        id="abilities"
-        className="relative py-20 sm:py-28 bg-white border-b border-[#E5E7EB] overflow-hidden"
-      >
-        {/* Background Image */}
-        <div className="absolute inset-0 z-0">
-          <img
-            src="https://images.unsplash.com/photo-1677442136019-21780ecad995?w=1920&q=80"
-            alt="AI capabilities background"
-            className="w-full h-full object-cover"
-          />
-          <div className="absolute inset-0 bg-gradient-to-br from-white/95 via-white/90 to-white/95" />
-        </div>
+     <section
+  id="abilities"
+  className="py-16 sm:py-24 bg-white border-b border-gray-100"
+>
+  <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+    {/* Section Header */}
+    <div className="max-w-2xl mb-12 sm:mb-16">
+      <span className="text-blue-600 text-xs font-bold uppercase tracking-wider">
+        Practical Capabilities
+      </span>
+      <h2 className="mt-2 text-3xl sm:text-3xl   font-semibold text-gray-900 tracking-tight">
+        {config.abilitiesSection.heading}
+      </h2>
+      <p className="mt-4 text-base sm:text-lg text-gray-600">
+        {config.abilitiesSection.subheading}
+      </p>
+    </div>
 
-        <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="max-w-3xl space-y-4 mb-14 lg:mb-20">
-            <span className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-[#EFF6FF] text-[#2563EB] text-xs font-bold uppercase tracking-wider">
-              PRACTICAL CAPABILITIES
+    {/* Minimal Grid Layout for Abilities */}
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8 lg:gap-10">
+      {config.abilitiesSection.abilities.map((item, idx) => (
+        <div key={item.id} className="rounded-3xl bg-white border border-[#E5E7EB] p-6 sm:p-7  items-start gap-5 brand-card-shadow brand-card-hover">
+          <div className="mb-2   flex  gap-2 item-center  ">
+           
+               <h3 className="text-xl  text-gray-900 mb-2">
+            {item.title}
+          </h3>
+          </div>
+       
+          <p className="text-sm text-gray-600 leading-relaxed mb-6 flex-grow">
+            {item.description}
+          </p>
+          <div className="pt-1 border-t border-gray-100">
+            <span className="block text-xs font-medium text-gray-500 uppercase tracking-wider mb-1">
+              Outcome
             </span>
-            <h2 className="text-2xl sm:text-3xl lg:text-[42px] font-semibold text-[#202124] tracking-tight leading-tight">
-              {config.abilitiesSection.heading}
-            </h2>
-            <p className="text-base sm:text-lg text-[#5F6368] leading-relaxed">
-              {config.abilitiesSection.subheading}
-            </p>
-          </div>
-
-          {/* Flow Layout - Abilities Connected by Arrows */}
-          <div className="space-y-6">
-            {config.abilitiesSection.abilities.map((item, idx) => {
-              const isLast = idx === config.abilitiesSection.abilities.length - 1;
-              const isPurple = idx % 2 === 1;
-              const accent = getBrandAccentClasses(
-                isPurple ? "purple" : "blue",
-              );
-              return (
-                <div key={item.id} className="relative flex flex-col md:flex-row items-start md:items-center gap-6 group">
-                  {/* Ability Card */}
-                  <div className="flex-1 w-full md:w-2/3 relative">
-                    <div className={`rounded-3xl p-7 sm:p-8 bg-white/95 backdrop-blur-sm border border-[#E5E7EB] shadow-lg transition-all duration-300 hover:shadow-xl hover:border-[#2563EB] relative ${isPurple ? 'border-l-4 border-l-[#7C3AED]' : 'border-l-4 border-l-[#2563EB]'}`}>
-                      <div className="flex flex-wrap items-center gap-3 mb-4">
-                        <span className={`px-3 py-1 rounded-full text-xs font-bold text-white shadow-xs ${isPurple ? "bg-[#7C3AED]" : "bg-[#2563EB]"}`}>
-                          Ability 0{idx + 1}
-                        </span>
-                        <span className="px-3 py-1 rounded-full text-[11px] font-semibold bg-[#F3F4F6] text-[#202124]">
-                          Practical Skill
-                        </span>
-                      </div>
-                      <h3 className="text-xl sm:text-2xl font-extrabold text-[#202124] tracking-tight mb-3">
-                        {item.title}
-                      </h3>
-                      <p className="text-sm sm:text-base text-[#5F6368] leading-relaxed mb-4">
-                        {item.description}
-                      </p>
-                      <div className="flex items-center justify-between pt-4 border-t border-[#F3F4F6]">
-                        <span className="text-xs sm:text-sm font-semibold text-[#5F6368] uppercase tracking-wider">
-                          Outcome:
-                        </span>
-                        <span className={`${accent.text} text-right font-bold`}>
-                          {item.deliverable}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Arrow Connector (except last item) */}
-                  {!isLast && (
-                    <div className="flex flex-col items-center md:items-start md:w-1/3 relative">
-                      <div className="w-1 h-20 sm:h-28 bg-gradient-to-b from-[#2563EB] to-[#7C3AED] rounded-full relative flex items-center justify-center">
-                        <ArrowDown className="w-6 h-6 text-white/80 absolute bottom-0 -translate-y-1/2 drop-shadow-md animate-bounce" />
-                      </div>
-                      <div className="mt-2 text-center md:text-left w-full">
-                        <span className="px-3 py-1.5 rounded-full text-xs font-bold bg-gradient-to-r from-[#2563EB] to-[#7C3AED] text-white shadow-sm">
-                          flows into
-                        </span>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Step Number Indicator */}
-                  <div className="absolute -top-3 -right-3 md:-right-6 md:-top-6 w-16 h-16 md:w-20 md:h-20 rounded-full bg-gradient-to-br from-[#2563EB]/10 to-[#7C3AED]/10 border border-[#E5E7EB] flex items-center justify-center z-0">
-                    <span className="text-2xl md:text-3xl font-extrabold text-[#2563EB]/30">
-                      0{idx + 1}
-                    </span>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-
-          {/* Closing Note Card */}
-          <div className="mt-12 rounded-3xl bg-gradient-to-br from-[#EFF6FF] via-white to-[#F3E8FF] border-2 border-[#BFDBFE] p-8 sm:p-10 flex flex-col justify-between brand-card-shadow animate-fade-up">
-            <div className="space-y-5 text-center">
-              <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-white border border-[#DDD6FE] text-[#7C3AED] text-xs font-bold uppercase shadow-2xs mx-auto">
-                <Award className="w-4 h-4 text-[#2563EB]" />
-                REAL WORK OVER PAPER CERTIFICATES
-              </div>
-              <p className="text-xl sm:text-2xl lg:text-3xl font-extrabold text-[#202124] leading-snug">
-                "{config.abilitiesSection.closingNote}"
-              </p>
-              <p className="text-sm sm:text-base text-[#5F6368] leading-relaxed max-w-2xl mx-auto">
-                Every single module inside AI Builder Academy is structured
-                around building, customizing, deploying, and presenting real
-                digital assets you can demonstrate live.
-              </p>
-            </div>
-
-            <div className="mt-8 pt-6 border-t border-[#DBEAFE] flex flex-col sm:flex-row sm:items-center justify-center gap-4">
-              <span className="text-xs sm:text-sm font-semibold text-[#2563EB] text-center">
-                Start as a beginner • Finish with demonstrable projects
-              </span>
-              <button
-                onClick={() => openCheckout()}
-                className="w-full sm:w-auto px-6 py-3.5 rounded-full bg-gradient-to-r from-[#2563EB] to-[#7C3AED] text-white text-xs sm:text-sm font-bold hover:opacity-95 transition-all cursor-pointer shadow-sm"
-              >
-                Join AI Builder Academy — {displayPrice}
-              </button>
-            </div>
+            <span className="block font-bold text-blue-500   text-sm">
+              {item.deliverable}
+            </span>
           </div>
         </div>
-      </section>
+      ))}
+    </div>
+
+    {/* Streamlined Closing Note */}
+    <div className="mt-16 sm:mt-24 p-8 sm:p-10 bg-gray-50 rounded-2xl text-center border border-gray-100">
+      <h4 className="text-xl sm:text-2xl font-  semibold text-gray-900 mb-4">
+        "{config.abilitiesSection.closingNote}"
+      </h4>
+      <p className="text-sm text-gray-600 max-w-2xl mx-auto mb-8">
+        Start as a beginner. Build, customize, deploy, and present real digital assets you can demonstrate live.
+      </p>
+      <button
+        onClick={() => openCheckout()}
+        className="inline-flex items-center justify-center px-6 py-3 rounded-full bg-blue-600 text-white text-sm font-bold hover:bg-blue-700 transition-colors shadow-sm cursor-pointer"
+      >
+        Join AI Builder Academy 
+      </button>
+    </div>
+  </div>
+</section>
 
       {/* =====================================================================
           SECTION 4: INTERACTIVE 5-PHASE, 12-MODULE CURRICULUM EXPLORER
@@ -855,7 +884,7 @@ export default function App() {
             </div>
 
             {/* Toggle between Tabbed View and Full Expanded Syllabus */}
-            <div className="flex flex-wrap items-center gap-2.5 self-start lg:self-auto">
+            {/* <div className="flex flex-wrap items-center gap-2.5 self-start lg:self-auto">
               <button
                 onClick={() => setShowAllPhases(false)}
                 className={`px-4 py-2.5 rounded-full text-xs sm:text-sm font-bold border transition-all cursor-pointer ${
@@ -876,7 +905,7 @@ export default function App() {
               >
                 View All 5 Phases Together
               </button>
-            </div>
+            </div> */}
           </div>
 
           {/* Phase Selector Pills (Responsive Grid with Zero Overflow) */}
@@ -1066,11 +1095,12 @@ export default function App() {
       </section>
 
       {/* =====================================================================
-          SECTION 5: PREVIOUS PROJECTS BUILT & SHOWCASE GALLERY
+          SECTION 5: PREVIOUS PROJECTS BUILT & SHOWCASE GALLERY (CAROUSEL)
       ===================================================================== */}
       <section
         id="projects"
         className="py-20 sm:py-28 bg-white border-b border-[#E5E7EB] relative"
+       
       >
         <span
           id="showcase"
@@ -1093,102 +1123,191 @@ export default function App() {
 
             <button
               onClick={() => setAddProjectModalOpen(true)}
-              className="inline-flex items-center gap-2 px-6 py-3.5 rounded-full text-xs sm:text-sm font-bold text-[#7C3AED] bg-[#F3E8FF] hover:bg-[#EDE9FE] border border-[#DDD6FE] transition-colors cursor-pointer self-start lg:self-auto shrink-0"
+              className="hidden items-center gap-2 px-6 py-3.5 rounded-full text-xs sm:text-sm font-bold text-[#7C3AED] bg-[#F3E8FF] hover:bg-[#EDE9FE] border border-[#DDD6FE] transition-colors cursor-pointer self-start lg:self-auto shrink-0"
             >
               <Plus className="w-4 h-4" />
               <span>Add Your Own Built Project</span>
             </button>
           </div>
 
-          {/* Projects Showcase Grid - Entire Card Clickable to Live Demo */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 lg:gap-10">
-            {config.previousProjects.projects.map((proj, idx) => {
-              const isPurple = idx % 2 === 1;
-              return (
-                <a
-                  key={proj.id}
-                  href={proj.livePreviewUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="rounded-3xl bg-white border border-[#E5E7EB] overflow-hidden flex flex-col justify-between brand-card-shadow brand-card-hover group cursor-pointer no-underline"
-                >
-                  <div>
-                    {/* Simulated Browser Preview Header */}
-                    <div className="px-6 py-4 bg-[#F8F9FA] border-b border-[#E5E7EB] flex items-center justify-between gap-2 flex-wrap">
-                      <div className="flex items-center gap-2.5">
-                        <span
-                          className="w-3 h-3 rounded-full shrink-0"
-                          style={{
-                            backgroundColor: isPurple ? "#7C3AED" : "#2563EB",
-                          }}
-                        />
-                        <span className="text-xs font-bold text-[#202124]">
-                          {proj.category}
-                        </span>
-                      </div>
-                      <span
-                        className={`text-[11px] font-bold px-3 py-1 rounded-full ${
-                          isPurple
-                            ? "bg-[#F3E8FF] text-[#7C3AED]"
-                            : "bg-[#EFF6FF] text-[#2563EB]"
-                        }`}
+          {/* Projects Carousel */}
+          <div className="relative">
+            {/* Carousel Viewport */}
+            <div className="overflow-hidden touch-pan-x"
+              onTouchStart={(e) => { touchStartRef.current = e.touches[0].clientX; }}
+              onTouchEnd={(e) => {
+                const touchEnd = e.changedTouches[0].clientX;
+                const diff = touchStartRef.current - touchEnd;
+                if (Math.abs(diff) > 50) {
+                  if (diff > 0) {
+                    goToProjectSlide((currentProjectSlide + 1) % config.previousProjects.projects.length);
+                  } else {
+                    goToProjectSlide((currentProjectSlide - 1 + config.previousProjects.projects.length) % config.previousProjects.projects.length);
+                  }
+                }
+              }}
+            >
+              <div
+                className="flex transition-transform duration-700 ease-out"
+                style={{
+                  transform: `translateX(-${currentProjectSlide * 100}%)`,
+                }}
+              >
+                {config.previousProjects.projects.map((proj, idx) => {
+                  const isPurple = idx % 2 === 1;
+                  // Project-specific placeholder images
+                  const projectImages = [
+                    "https://images.unsplash.com/photo-1460925895917-afdab827c52f?w=1200&q=80", // Web App
+                    "https://images.unsplash.com/photo-1551288049-bebda4e38f71?w=1200&q=80", // Mobile/App
+                    "https://images.unsplash.com/photo-1551434678-e076c223a692?w=1200&q=80", // Dashboard
+                    "https://images.unsplash.com/photo-1518770660439-4636190af475?w=1200&q=80", // E-commerce
+                    "https://images.unsplash.com/photo-1553484771-371a605b060b?w=1200&q=80", // SaaS
+                    "https://images.unsplash.com/photo-1461749280684-dccba630e2f6?w=1200&q=80", // Analytics
+                  ];
+                  const projectImage = projectImages[idx % projectImages.length];
+                  
+                  return (
+                    <div key={proj.id} className="w-full flex-shrink-0 ">
+                      <a
+                        href={proj.livePreviewUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="block rounded-3xl bg-white border border-[#E5E7EB] overflow-hidden brand-card-shadow brand-card-hover group no-underline h-full"
                       >
-                        {proj.phaseBadge}
-                      </span>
-                    </div>
+                        {/* Project Image Header with Overlay Details */}
+                        <div className="relative h-64 w-full overflow-hidden bg-[#F3F4F6]">
+                          <img
+                            src={projectImage}
+                            alt={`${proj.title} project preview`}
+                            loading="lazy"
+                            className="w-full h-full object-cover object-center group-hover:scale-105 transition-transform duration-700 ease-out"
+                          />
+                          {/* Gradient Overlay */}
+                          <div className="absolute inset-0 bg-gradient-to-t from-[#111827]/80 via-[#111827]/30 to-transparent" />
+                          <div className="absolute inset-0 bg-gradient-to-r from-slate-950/60 via-transparent to-slate-950/20" />
 
-                    {/* Visual Mockup Banner */}
-                    <div className="p-6 sm:p-8 bg-gradient-to-br from-[#F8F9FA] via-white to-[#F3E8FF]/35 border-b border-[#E5E7EB]">
-                      <div className="rounded-2xl bg-white border border-[#E5E7EB] p-5 sm:p-6 shadow-2xs space-y-3.5">
-                        <div className="flex items-center justify-between gap-2">
-                          <div className="flex items-center gap-2 min-w-0">
-                            <Monitor className="w-4 h-4 text-[#2563EB] shrink-0" />
-                            <span className="text-xs font-mono text-[#5F6368] truncate">
-                              {proj.livePreviewUrl}
-                            </span>
+                          
+
+                          {/* Bottom Content Overlay */}
+                          <div className="absolute bottom-0 left-0 right-0 p-6">
+                            <div className="flex items-center justify-between gap-2 mb-3">
+                             
+                              <span className=" hidden                        px-2.5 py-1 rounded-full text-[10px] font-bold bg-white/20 text-white/90 backdrop-blur-sm border border-white/30 shrink-0">
+                                LIVE DEMO
+                              </span>
+                            </div>
+                            <h3 className="text-xl sm:text-2xl font-extrabold text-white tracking-tight drop-shadow-lg group-hover:text-purple-200 transition-colors">
+                              {proj.title}
+                            </h3>
+                            <p className="text-sm sm:text-base text-white/70 leading-relaxed mt-2 line-clamp-2">
+                              {proj.summary}
+                            </p>
                           </div>
-                          <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-[#EFF6FF] text-[#2563EB] shrink-0">
-                            LIVE DEMO
-                          </span>
                         </div>
-                        <h3 className="text-xl sm:text-2xl font-bold text-[#202124] group-hover:text-[#2563EB] transition-colors">
-                          {proj.title}
-                        </h3>
-                        <p className="text-sm sm:text-base text-[#5F6368] leading-relaxed">
-                          {proj.summary}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
 
-                  {/* Stack & Outcome Footer */}
-                  <div className="p-6 sm:p-8 space-y-5 bg-white">
-                    <div className="flex flex-wrap gap-2">
-                      {proj.techStack.map((tech) => (
-                        <span
-                          key={tech}
-                          className="px-3 py-1 rounded-lg bg-[#F8F9FA] border border-[#E5E7EB] text-xs font-semibold text-[#202124]"
-                        >
-                          {tech}
-                        </span>
-                      ))}
-                    </div>
+                        {/* Card Body - Tech Stack & Details */}
+                        <div className="p-6 sm:p-8 space-y-6">
+                          {/* Tech Stack */}
+                          <div className="flex flex-wrap gap-2">
+                            {proj.techStack.map((tech) => (
+                              <span
+                                key={tech}
+                                className="px-3 py-1.5 rounded-xl bg-[#F8F9FA] border border-[#E5E7EB] text-sm font-semibold text-[#202124] group-hover:border-[#2563EB] group-hover:bg-[#EFF6FF] transition-colors"
+                              >
+                                {tech}
+                              </span>
+                            ))}
+                          </div>
 
-                    <div className="pt-4 border-t border-[#E5E7EB] flex items-center justify-between gap-3 flex-wrap">
-                      <div className="flex items-center gap-2 text-xs sm:text-sm font-bold text-[#7C3AED]">
-                        <CheckCircle2 className="w-4 h-4 shrink-0 text-[#2563EB]" />
-                        <span>{proj.outcomeMetric}</span>
-                      </div>
+                          {/* Outcome & CTA */}
+                          <div className="pt-4 border-t border-[#E5E7EB] flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                            <div className="hidden items-center gap-3 text-sm font-bold text-[#7C3AED]">
+                              <CheckCircle2 className="w-5 h-5 shrink-0 text-[#2563EB]" />
+                              <span>{proj.outcomeMetric}</span>
+                            </div>
 
-                      <span className="inline-flex items-center gap-1.5 text-xs sm:text-sm font-bold text-[#2563EB] hover:text-[#7C3AED] transition-colors">
-                        <Eye className="w-4 h-4" />
-                        <span>View Live Demo →</span>
-                      </span>
+                            <div className="inline-flex items-center gap-2 text-sm font-bold text-[#2563EB] hover:text-[#7C3AED] transition-colors group">
+                              <span className="relative">View Live Demo</span>
+                              <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+                            </div>
+                          </div>
+                        </div>
+                      </a>
                     </div>
-                  </div>
-                </a>
-              );
-            })}
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Navigation Arrows - Outside Carousel for Better Visibility */}
+            <div className="absolute inset-y-0 left-0 right-0 flex items-center justify-between px-4 sm:px-6 -ml-4 sm:-ml-6 -mr-4 sm:-mr-6 pointer-events-none z-20">
+              <button
+                onClick={() => goToProjectSlide(
+                  (currentProjectSlide - 1 + config.previousProjects.projects.length) % config.previousProjects.projects.length
+                )}
+                aria-label="Previous project"
+                className="pointer-events-auto w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-white  backdrop-blur-md border border-[#E5E7EB] shadow-xl flex items-center justify-center text-[#202124] hover:bg-white hover:border-[#2563EB] hover:shadow-2xl transition-all duration-300 cursor-pointer group"
+              >
+                <ChevronLeft className="w-6 h-6 sm:w-7 sm:h-7 text-[#2563EB]" />
+              </button>
+              <button
+                onClick={() => goToProjectSlide(
+                  (currentProjectSlide + 1) % config.previousProjects.projects.length
+                )}
+                aria-label="Next project"
+                className="pointer-events-auto w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-white/95 backdrop-blur-md border border-[#E5E7EB] shadow-xl flex items-center justify-center text-[#202124] hover:bg-white hover:border-[#2563EB] hover:shadow-2xl transition-all duration-300 cursor-pointer group"
+              >
+                <ChevronRight className="w-6 h-6 sm:w-7 sm:h-7 text-[#2563EB]" />
+              </button>
+            </div>
+
+            {/* Slide Indicators & Progress */}
+            <div className="mt-8 flex flex-col items-center gap-4">
+              {/* Progress Bar for Auto-Advance */}
+              <div className="w-50   max-w-md h-1.5 bg-[#E5E7EB] rounded-full overflow-hidden">
+                <div
+                  className="h-full rounded-full bg-gradient-to-r from-[#2563EB] to-[#7C3AED] origin-left"
+                  style={{
+                    transform: `scaleX(${projectSlideProgress / 100})`,
+                    transformOrigin: 'left center',
+                    transition: 'transform 0.1s linear',
+                  }}
+                />
+              </div>
+
+              {/* Slide Indicators/Dots */}
+              <div className="flex items-center gap-2">
+                {config.previousProjects.projects.map((_, idx) => (
+                  <button
+                    key={idx}
+                    onClick={() => goToProjectSlide(idx)}
+                    aria-label={`Go to project ${idx + 1}`}
+                    className={`w-2.5 h-2.5 rounded-full transition-all duration-300 cursor-pointer ${
+                      idx === currentProjectSlide
+                        ? "bg-gradient-to-r from-[#2563EB] to-[#7C3AED] w-8 shadow-md"
+                        : "bg-[#D1D5DB] hover:bg-[#9CA3AF]"
+                    }`} />
+                ))}
+              </div>
+
+              {/* Pause/Play Toggle */}
+              <button
+                onClick={() => setIsProjectsPaused(!isProjectsPaused)}
+                title={isProjectsPaused ? "Resume Auto-Slide" : "Pause Auto-Slide"}
+                className="w-10 h-10 rounded-full bg-white/80 backdrop-blur-md border border-[#E5E7EB] flex items-center justify-center text-[#5F6368] hover:text-[#202124] hover:border-[#2563EB] hover:bg-white transition-all cursor-pointer"
+              >
+                {isProjectsPaused ? (
+                  <svg viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5">
+                    <polygon points="5 3 19 12 5 21 5 3" />
+                  </svg>
+                ) : (
+                  <svg viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5">
+                    <rect x="6" y="4" width="4" height="16" />
+                    <rect x="14" y="4" width="4" height="16" />
+                  </svg>
+                )}
+              </button>
+            </div>
           </div>
         </div>
       </section>
@@ -1290,7 +1409,7 @@ export default function App() {
               <span className="inline-flex px-3.5 py-1.5 rounded-full bg-[#F3E8FF] text-[#7C3AED] text-xs font-bold uppercase tracking-wider">
                 TAILORED OUTCOMES
               </span>
-              <h2 className="text-2xl sm:text-3xl lg:text-[42px] font-semibold text-[#202124] tracking-tight leading-tight">
+              <h2 className="text-2xl sm:text-2xl lg:text-[42px] font-bold text-[#202124] tracking-tight leading-tight">
                 {config.pathsSection.heading}
               </h2>
               <p className="text-base sm:text-lg text-[#5F6368]">
@@ -1330,7 +1449,7 @@ export default function App() {
                         )}
                       </div>
 
-                      <h3 className="text-2xl font-extrabold text-[#202124]">
+                      <h3 className="text-2xl font-bold text-[#202124]">
                         {path.title}
                       </h3>
 
@@ -1384,7 +1503,7 @@ export default function App() {
           </div>
 
           {/* Part B: More Than Watching Lessons — Learn by Doing */}
-          <div className="rounded-3xl bg-gradient-to-br from-[#F8F9FA] via-white to-[#F3E8FF]/40 border border-[#E5E7EB] p-8 sm:p-12 brand-card-shadow">
+<div className=" hidden rounded-3xl bg-gradient-to-br from-[#F8F9FA] via-white to-[#F3E8FF]/40 border border-[#E5E7EB] p-8 sm:p-12 brand-card-shadow">
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 lg:gap-12 items-center">
               <div className="lg:col-span-7 space-y-5">
                 <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-[#EFF6FF] text-[#2563EB] text-xs font-bold uppercase">
@@ -1500,12 +1619,12 @@ export default function App() {
               <h2 className="text-2xl sm:text-3xl lg:text-[42px] font-semibold text-[#202124] tracking-tight leading-tight">
                 {config.sidelinesCta.heading}
               </h2>
-              <div className="space-y-4 text-base sm:text-lg text-[#5F6368] leading-relaxed">
+              <div className="  space-y-4 text-base sm:text-lg text-[#5F6368] leading-relaxed">
                 {config.sidelinesCta.paragraphs.map((p, idx) => (
                   <p
                     key={idx}
                     className={
-                      idx === 2 || idx === 5 ? "font-bold text-[#202124]" : ""
+                      idx === 2 || idx === 5 ? "font-semibold text-[#202124]" : ""
                     }
                   >
                     {p}
@@ -1542,7 +1661,7 @@ export default function App() {
                     Complete 5-Phase Curriculum & Project Roadmap
                   </div>
                   <div className="mt-2 flex items-baseline gap-2 flex-wrap">
-                    <span className="text-4xl sm:text-5xl font-extrabold text-[#202124] tracking-tight">
+                    <span className="text-4xl sm:text-5xl font-bold text-[#202124] tracking-tight">
                       {displayPrice}
                     </span>
                     <span className="text-xs font-semibold text-[#5F6368]">
@@ -1578,7 +1697,7 @@ export default function App() {
                 >
                   <CreditCard className="w-4 h-4 shrink-0" />
                   <span>
-                    {config.sidelinesCta.buttonText} — {displayPrice}
+                    {config.sidelinesCta.buttonText}
                   </span>
                 </button>
 
