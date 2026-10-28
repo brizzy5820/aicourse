@@ -89,7 +89,7 @@ export default function App() {
   const videoRefs = useRef([]);
   const elapsedRef = useRef(0);
   const timerRef = useRef(null);
-  const SLIDE_DURATION = 5000; // 6.5s timeout per slide
+  const SLIDE_DURATION = 4000; // 6.5s timeout per slide
 
   // Curriculum State
   const [activePhaseIndex, setActivePhaseIndex] = useState(0);
@@ -1134,18 +1134,7 @@ export default function App() {
           <div className="relative">
             {/* Carousel Viewport */}
             <div className="overflow-hidden touch-pan-x"
-              onTouchStart={(e) => { touchStartRef.current = e.touches[0].clientX; }}
-              onTouchEnd={(e) => {
-                const touchEnd = e.changedTouches[0].clientX;
-                const diff = touchStartRef.current - touchEnd;
-                if (Math.abs(diff) > 50) {
-                  if (diff > 0) {
-                    goToProjectSlide((currentProjectSlide + 1) % config.previousProjects.projects.length);
-                  } else {
-                    goToProjectSlide((currentProjectSlide - 1 + config.previousProjects.projects.length) % config.previousProjects.projects.length);
-                  }
-                }
-              }}
+              
             >
               <div
                 className="flex transition-transform duration-700 ease-out"
@@ -1157,12 +1146,11 @@ export default function App() {
                   const isPurple = idx % 2 === 1;
                   // Project-specific placeholder images
                   const projectImages = [
-                    "https://images.unsplash.com/photo-1460925895917-afdab827c52f?w=1200&q=80", // Web App
-                    "https://images.unsplash.com/photo-1551288049-bebda4e38f71?w=1200&q=80", // Mobile/App
-                    "https://images.unsplash.com/photo-1551434678-e076c223a692?w=1200&q=80", // Dashboard
-                    "https://images.unsplash.com/photo-1518770660439-4636190af475?w=1200&q=80", // E-commerce
-                    "https://images.unsplash.com/photo-1553484771-371a605b060b?w=1200&q=80", // SaaS
-                    "https://images.unsplash.com/photo-1461749280684-dccba630e2f6?w=1200&q=80", // Analytics
+                    "https://res.cloudinary.com/dzqpchfew/image/upload/v1793161358/grok_1793161115794_rm6byk.jpg", // Web App
+                    "https://res.cloudinary.com/dzqpchfew/image/upload/v1793161357/grok_1793161010658_cteeaa.jpg", // Mobile App
+                    "https://res.cloudinary.com/dzqpchfew/image/upload/v1793161346/projectimg_f.e_lbdwif.jpg", // E-commerce
+                    "https://res.cloudinary.com/dzqpchfew/image/upload/v1793161355/projectimg_realestate_1_a8rp6u.jpg", // Dashboard
+               
                   ];
                   const projectImage = projectImages[idx % projectImages.length];
                   
@@ -1196,7 +1184,7 @@ export default function App() {
                                 LIVE DEMO
                               </span>
                             </div>
-                            <h3 className="text-xl sm:text-2xl font-extrabold text-white tracking-tight drop-shadow-lg group-hover:text-purple-200 transition-colors">
+                            <h3 className="text-xl sm:text-2xl font-bold text-white tracking-tight drop-shadow-lg group-hover:text-purple-200 transition-colors">
                               {proj.title}
                             </h3>
                             <p className="text-sm sm:text-base text-white/70 leading-relaxed mt-2 line-clamp-2">
