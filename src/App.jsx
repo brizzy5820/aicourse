@@ -1132,9 +1132,28 @@ export default function App() {
 
           {/* Projects Carousel */}
           <div className="relative">
-            {/* Carousel Viewport */}
-            <div className="overflow-hidden touch-pan-x"
-              
+{/* Carousel Viewport */}
+            <div
+              className="overflow-hidden"
+              onTouchStart={(e) => {
+                touchStartRef.current = e.touches[0].clientX;
+              }}
+              onTouchMove={(e) => {
+                // Don't prevent default - allow vertical scroll
+                // Just track horizontal movement for swipe detection
+              }}
+              onTouchEnd={(e) => {
+                const touchEnd = e.changedTouches[0].clientX;
+                const diff = touchStartRef.current - touchEnd;
+                const threshold = 50; // minimum swipe distance
+                if (Math.abs(diff) > threshold) {
+                  if (diff > 0) {
+                    goToProjectSlide((currentProjectSlide + 1) % config.previousProjects.projects.length);
+                  } else {
+                    goToProjectSlide((currentProjectSlide - 1 + config.previousProjects.projects.length) % config.previousProjects.projects.length);
+                  }
+                }
+              }}
             >
               <div
                 className="flex transition-transform duration-700 ease-out"
