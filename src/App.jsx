@@ -3,6 +3,12 @@ import { Routes, Route, Link } from 'react-router-dom';
 import ProtectedRoute from './components/ProtectedRoute';
 import AdminConfig from './pages/AdminConfig';
 import {
+  buildEarnersPayCheckoutUrl,
+  openEarnersPayCheckout,
+  getEarnersPayCheckoutHref,
+  EARNERSPAY_CHECKOUT_CLASS,
+} from './utils/earnersPay';
+import {
   Sparkles,
   CheckCircle2,
   ArrowRight,
@@ -252,13 +258,17 @@ export default function App() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [currentProjectSlide, config.previousProjects.projects.length]);
 
+  // EarnersPay checkout URL for anchor tags (href)
+  const earnersPayCheckoutHref = getEarnersPayCheckoutHref(config);
+
   const openCheckout = (trackTitle) => {
     setIsMobileMenuOpen(false);
-    setCheckoutStep('details');
+    // Open EarnersPay checkout in new tab
+    openEarnersPayCheckout(config);
+    // Optionally track the selected track for analytics
     if (trackTitle && typeof trackTitle === 'string') {
-      setCheckoutForm((prev) => ({ ...prev, selectedTrack: trackTitle }));
+      console.log('Checkout initiated for:', trackTitle);
     }
-    setCheckoutOpen(true);
   };
 
   const goToSlide = (idx) => {
@@ -302,7 +312,7 @@ export default function App() {
       livePreviewUrl: 'https://demo.ai-academy.build',
       summary:
         newProject.summary ||
-        'Custom digital product engineered and deployed using AI Builder Academy workflows.',
+        'Custom digital product engineered and deployed using APPS Academy  workflows.',
       techStack: techList.length ? techList : ['React', 'Tailwind', 'AI'],
       outcomeMetric: newProject.outcomeMetric || 'Deployed MVP Live',
       architectureNotes:
@@ -310,6 +320,9 @@ export default function App() {
     };
 
     setConfig((prev) => ({
+
+
+    
       ...prev,
       previousProjects: {
         ...prev.previousProjects,
@@ -440,13 +453,15 @@ export default function App() {
 
           {/* Right Action Controls */}
           <div className="flex items-center gap-2.5 sm:gap-3">
-            <button
-              onClick={openCheckout}
-              className="hidden sm:inline-flex items-center gap-2 bg-gradient-to-r from-blue-600 via-purple-600 to-blue-600 bg-[length:200%_auto] hover:bg-right text-white font-semibold text-xs sm:text-sm px-5 py-2.5 rounded-full shadow-md shadow-purple-900/20 transition-all duration-300 cursor-pointer active:scale-[0.99]"
+            <a
+              href={earnersPayCheckoutHref}
+              target="_blank"
+              rel="noopener noreferrer"
+              className={`${EARNERSPAY_CHECKOUT_CLASS} hidden sm:inline-flex items-center gap-2 bg-gradient-to-r from-blue-600 via-purple-600 to-blue-600 bg-[length:200%_auto] hover:bg-right text-white font-semibold text-xs sm:text-sm px-5 py-2.5 rounded-full shadow-md shadow-purple-900/20 transition-all duration-300 active:scale-[0.99]`}
             >
               <span>{config.pricing.ctaPrimary}</span>
               <ArrowRight className="w-4 h-4" />
-            </button>
+            </a>
 
             {/* Mobile Hamburger Button */}
             <button
@@ -489,13 +504,16 @@ export default function App() {
                 </a>
               ))}
             </div>
-            <button
-              onClick={() => openCheckout()}
-              className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-blue-600 to-purple-600 text-white font-semibold text-sm py-3.5 rounded-full shadow-sm"
+            <a
+              href={earnersPayCheckoutHref}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={() => setIsMobileMenuOpen(false)}
+              className={`${EARNERSPAY_CHECKOUT_CLASS} w-full flex items-center justify-center gap-2 bg-gradient-to-r from-blue-600 to-purple-600 text-white font-semibold text-sm py-3.5 rounded-full shadow-sm`}
             >
               <CreditCard className="w-4 h-4" />
               <span>Checkout Now — {displayPrice}</span>
-            </button>
+            </a>
           </div>
         )}
       </header>
@@ -567,9 +585,11 @@ export default function App() {
 
             {/* Primary Hero CTAs */}
             <div className=" sm:flex-row items-stretch sm:items-center gap-4">
-              <button
-                onClick={openCheckout}
-                className="inline-flex items-center justify-center gap-3 bg-gradient-to-r from-blue-600 via-purple-600 to-blue-600 bg-[length:200%_auto] hover:bg-right text-white font-semibold text-base px-6 py-4 rounded-full shadow-xl shadow-purple-950/50 transition-all duration-300 cursor-pointer group"
+              <a
+                href={earnersPayCheckoutHref}
+                target="_blank"
+                rel="noopener noreferrer"
+                className={`${EARNERSPAY_CHECKOUT_CLASS} inline-flex items-center justify-center gap-3 bg-gradient-to-r from-blue-600 via-purple-600 to-blue-600 bg-[length:200%_auto] hover:bg-right text-white font-semibold text-base px-6 py-4 rounded-full shadow-xl shadow-purple-950/50 transition-all duration-300 group`}
               >
                 <span>{config.pricing.ctaHero}</span>
                 {/* <span className="bg-white/20 px-3 py-0.5 hidden rounded-full text-xs font-bold">
@@ -577,7 +597,7 @@ export default function App() {
                   {config.pricing.amount}
                 </span> */}
                 <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-              </button>
+              </a>
 
               {/* <a
                 href="#curriculum"
@@ -782,13 +802,15 @@ export default function App() {
                   <span className="text-xs font-semibold text-purple-900">
                     Understand Tools → Build → Launch → Showcase → Monetize
                   </span>
-                  <button
-                    onClick={openCheckout}
-                    className="text-sm font-bold text-blue-600 hover:text-purple-700 inline-flex items-center gap-1.5 cursor-pointer transition-colors"
+                  <a
+                    href={earnersPayCheckoutHref}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className={`${EARNERSPAY_CHECKOUT_CLASS} text-sm font-bold text-blue-600 hover:text-purple-700 inline-flex items-center gap-1.5 transition-colors`}
                   >
                     <span>Start the journey</span>
                     <ArrowRight className="w-4 h-4" />
-                  </button>
+                  </a>
                 </div>
               </div>
             </div>
@@ -851,12 +873,14 @@ export default function App() {
       <p className="text-sm text-gray-600 max-w-2xl mx-auto mb-8">
         Start as a beginner. Build, customize, deploy, and present real digital assets you can demonstrate live.
       </p>
-      <button
-        onClick={() => openCheckout()}
-        className="inline-flex items-center justify-center px-6 py-3 rounded-full bg-blue-600 text-white text-sm font-bold hover:bg-blue-700 transition-colors shadow-sm cursor-pointer"
+      <a
+        href={earnersPayCheckoutHref}
+        target="_blank"
+        rel="noopener noreferrer"
+        className={`${EARNERSPAY_CHECKOUT_CLASS} inline-flex items-center justify-center px-6 py-3 rounded-full bg-blue-600 text-white text-sm font-bold hover:bg-blue-700 transition-colors shadow-sm`}
       >
-        Join AI Builder Academy 
-      </button>
+        Join APPS Academy 
+      </a>
     </div>
   </div>
 </section>
@@ -1488,12 +1512,14 @@ export default function App() {
                         </div>
                       </div>
 
-                      <button
+                      <a
+                        href={earnersPayCheckoutHref}
+                        target="_blank"
+                        rel="noopener noreferrer"
                         onClick={(e) => {
                           e.stopPropagation();
-                          openCheckout(path.title);
                         }}
-                        className={`w-full py-3.5 px-5 rounded-full text-white text-xs sm:text-sm font-bold transition-all flex items-center justify-center gap-2 cursor-pointer shadow-xs ${
+                        className={`${EARNERSPAY_CHECKOUT_CLASS} w-full py-3.5 px-5 rounded-full text-white text-xs sm:text-sm font-bold transition-all flex items-center justify-center gap-2 shadow-xs ${
                           isPurple
                             ? "bg-[#7C3AED] hover:bg-[#6D28D9]"
                             : "bg-[#2563EB] hover:bg-[#1D4ED8]"
@@ -1501,7 +1527,7 @@ export default function App() {
                       >
                         <span>Choose {path.title}</span>
                         <span className="opacity-90">({displayPrice})</span>
-                      </button>
+                      </a>
                     </div>
                   </div>
                 );
@@ -1698,15 +1724,17 @@ export default function App() {
                   </div>
                 </div>
 
-                <button
-                  onClick={() => openCheckout()}
-                  className="w-full py-4 px-6 rounded-full bg-gradient-to-r from-[#2563EB] to-[#7C3AED] hover:from-[#1D4ED8] hover:to-[#6D28D9] text-white font-bold text-sm sm:text-base shadow-md hover:shadow-lg transition-all flex items-center justify-center gap-2.5 cursor-pointer"
+                <a
+                  href={earnersPayCheckoutHref}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className={`${EARNERSPAY_CHECKOUT_CLASS} w-full py-4 px-6 rounded-full bg-gradient-to-r from-[#2563EB] to-[#7C3AED] hover:from-[#1D4ED8] hover:to-[#6D28D9] text-white font-bold text-sm sm:text-base shadow-md hover:shadow-lg transition-all flex items-center justify-center gap-2.5`}
                 >
                   <CreditCard className="w-4 h-4 shrink-0" />
                   <span>
                     {config.sidelinesCta.buttonText}
                   </span>
-                </button>
+                </a>
 
                 <p className="text-center text-xs text-[#5F6368]">
                   {config.sidelinesCta.footerCaption}
@@ -1803,15 +1831,17 @@ export default function App() {
             </p>
 
             <div className="pt-4 flex flex-col sm:flex-row items-stretch sm:items-center justify-center gap-4">
-              <button
-                onClick={() => openCheckout()}
-                className="w-full sm:w-auto px-8 py-4 rounded-full bg-gradient-to-r from-[#2563EB] to-[#7C3AED] hover:from-[#1D4ED8] hover:to-[#6D28D9] text-white font-bold text-base shadow-md hover:shadow-lg transition-all inline-flex items-center justify-center gap-3 cursor-pointer"
+              <a
+                href={earnersPayCheckoutHref}
+                target="_blank"
+                rel="noopener noreferrer"
+                className={`${EARNERSPAY_CHECKOUT_CLASS} w-full sm:w-auto px-8 py-4 rounded-full bg-gradient-to-r from-[#2563EB] to-[#7C3AED] hover:from-[#1D4ED8] hover:to-[#6D28D9] text-white font-bold text-base shadow-md hover:shadow-lg transition-all inline-flex items-center justify-center gap-3`}
               >
                 <span>{config.finalBanner.buttonText}</span>
                 <span className="px-3 py-0.5 rounded-full bg-white text-[#2563EB] text-sm font-extrabold">
                   {displayPrice}
                 </span>
-              </button>
+              </a>
             </div>
           </div>
         </div>
@@ -1836,12 +1866,14 @@ export default function App() {
             <span>{config.meta.brandTagline}</span>
           </div>
           <div className="flex items-center gap-4">
-            <button
-              onClick={() => openCheckout()}
-              className="font-bold text-[#7C3AED] hover:underline cursor-pointer"
+            <a
+              href={earnersPayCheckoutHref}
+              target="_blank"
+              rel="noopener noreferrer"
+              className={`${EARNERSPAY_CHECKOUT_CLASS} font-bold text-[#7C3AED] hover:underline`}
             >
               Checkout ({displayPrice})
-            </button>
+            </a>
           </div>
         </div>
       </footer>
@@ -2066,15 +2098,15 @@ export default function App() {
                 <span className="text-xs font-bold text-[#7C3AED]">
                   {selectedProjectModal.outcomeMetric}
                 </span>
-                <button
-                  onClick={() => {
-                    setSelectedProjectModal(null);
-                    openCheckout();
-                  }}
-                  className="px-5 py-2.5 rounded-full bg-gradient-to-r from-[#2563EB] to-[#7C3AED] text-white text-xs font-bold cursor-pointer"
+                <a
+                  href={earnersPayCheckoutHref}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={() => setSelectedProjectModal(null)}
+                  className={`${EARNERSPAY_CHECKOUT_CLASS} px-5 py-2.5 rounded-full bg-gradient-to-r from-[#2563EB] to-[#7C3AED] text-white text-xs font-bold`}
                 >
                   Learn to Build This — {displayPrice}
-                </button>
+                </a>
               </div>
             </div>
           </div>
@@ -2276,7 +2308,7 @@ export default function App() {
                             key={mod.code}
                             onClick={() => {
                               closePhaseDrawer();
-                              openCheckout(`${selectedPhase.number} - ${mod.title}`);
+                              openEarnersPayCheckout(config);
                             }}
                             className="w-full text-left p-4 rounded-xl bg-[#F8F9FA] border border-[#E5E7EB] hover:border-[#2563EB] hover:bg-white hover:shadow-md transition-all flex items-start gap-4"
                           >
@@ -2303,16 +2335,16 @@ export default function App() {
 
                   {/* CTA Button at bottom */}
                   <div className="pt-6 border-t border-[#E5E7EB]">
-                    <button
-                      onClick={() => {
-                        closePhaseDrawer();
-                        openCheckout(selectedPhase.title);
-                      }}
-                      className="w-full py-4 px-6 rounded-full bg-gradient-to-r from-[#2563EB] to-[#7C3AED] hover:from-[#1D4ED8] hover:to-[#6D28D9] text-white font-bold text-sm shadow-md hover:shadow-lg transition-all flex items-center justify-center gap-2 cursor-pointer"
+                    <a
+                      href={earnersPayCheckoutHref}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      onClick={closePhaseDrawer}
+                      className={`${EARNERSPAY_CHECKOUT_CLASS} w-full py-4 px-6 rounded-full bg-gradient-to-r from-[#2563EB] to-[#7C3AED] hover:from-[#1D4ED8] hover:to-[#6D28D9] text-white font-bold text-sm shadow-md hover:shadow-lg transition-all flex items-center justify-center gap-2`}
                     >
                       <span>Explore {selectedPhase.title} — {displayPrice}</span>
                       <ArrowRight className="w-4 h-4" />
-                    </button>
+                    </a>
                   </div>
                 </div>
               )}

@@ -8,15 +8,18 @@
 
 export const DEFAULT_PRODUCT_CONFIG = {
   meta: {
-    brandName: 'AI Builder Academy',
+    brandName: 'AI Profound Potential Secrets ',
     brandTagline: 'Practical AI Engineering & Product Launch',
     priceFormatted: '10,000',
     currencySymbol: '₦',
     showCurrencySymbol: true,
     checkoutSupportNote: 'Secure checkout • Instant portal & community access',
+    // EarnersPay configuration
+    earnersPayProductId: 'EP_AI_BUILDER_ACADEMY', // Replace with actual product ID from EarnersPay
+    earnersPayAffiliateId: '', // Optional: affiliate ID for tracking
   },
   brand: {
-    name: 'AI Builder Academy',
+    name: 'AI Profound Potential Secrets',
     badge: 'BUILD & LAUNCH WITH AI',
     accentColors: ['#2563EB', '#7C3AED', '#3B82F6', '#9333EA'],
   },
@@ -78,7 +81,7 @@ export const DEFAULT_PRODUCT_CONFIG = {
       'Today, AI writes code, designs interfaces, and automates workflows in seconds—if you know how to command it.',
     ],
     catchTitle: 'But here’s the catch:',
-    catchHighlight: 'Access to AI doesn’t make you a   complete  builder.',
+    catchHighlight: 'Access to AI without the knowledge limits you from what you can build with it.',
     catchBody: 'Generating a beautiful layout is useless if you can’t customize it, connect a database, fix a bug, or publish it live.',
     solutionTitle: 'That’s where we come in.',
     solutionBody: 'We take you past basic chat prompts. You will learn the complete pipeline: from raw idea to live, monetizable product.',
@@ -252,6 +255,7 @@ export const DEFAULT_PRODUCT_CONFIG = {
     ],
   },
   previousProjects: {
+    
     heading: 'Built by Our Students',
     subheading: 'Real web apps and automations built using our exact roadmap.',
     projects: [

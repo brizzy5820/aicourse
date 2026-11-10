@@ -5,6 +5,43 @@
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>aiintech</title>
+    <!-- EarnersPay Checkout Auto-Attach Script -->
+    <script>
+      (function() {
+        'use strict';
+        
+        function attachEarnersPayCheckout() {
+          // Build checkout URL from URL params (p=product_id, a=affiliate_id)
+          var product_id = new URLSearchParams(window.location.search).get('p') || '';
+          var affiliate_id = new URLSearchParams(window.location.search).get('a') || '';
+          var live_url = 'https://app.earnerspay.com/checkout'; 
+          var checkout_link = live_url + '?p=' + encodeURIComponent(product_id) + (affiliate_id ? '&a=' + encodeURIComponent(affiliate_id) : '');
+          
+          // Attach to all elements with the checkout class
+          var buttons = document.querySelectorAll('.ep-checkout-btn');
+          buttons.forEach(function(button) {
+            // Only set href if not already set (React may have set it)
+            if (!button.hasAttribute('href') || button.getAttribute('href') === '#') {
+              button.setAttribute('href', checkout_link);
+            }
+            // Ensure target and rel for external links
+            button.setAttribute('target', '_blank');
+            button.setAttribute('rel', 'noopener noreferrer');
+          });
+        }
+        
+        // Run on DOM ready
+        if (document.readyState === 'loading') {
+          document.addEventListener('DOMContentLoaded', attachEarnersPayCheckout);
+        } else {
+          attachEarnersPayCheckout();
+        }
+        
+        // Also re-run after a short delay to catch any dynamically rendered elements
+        setTimeout(attachEarnersPayCheckout, 100);
+        setTimeout(attachEarnersPayCheckout, 1000);
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>
