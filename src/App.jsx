@@ -350,7 +350,7 @@ export default function App() {
     config.meta?.showCurrencySymbol !== false
       ? config.meta?.currencySymbol || config.pricing?.currencySymbol || '₦'
       : ''
-  }${config.meta?.priceFormatted || config.pricing?.amount || '10,000'}`;
+  }${config.meta?.priceFormatted || config.pricing?.amount || '10,500'}`;
 
   const activeSlide = config.heroSlides?.[currentSlide] || config.heroSlides?.[0] || {};
 

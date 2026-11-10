@@ -10,9 +10,12 @@
       (function() {
         'use strict';
         
+        // Default product ID - matches config in src/config/productConfig.js
+        var DEFAULT_PRODUCT_ID = 'epr-689129';
+        
         function attachEarnersPayCheckout() {
-          // Build checkout URL from URL params (p=product_id, a=affiliate_id)
-          var product_id = new URLSearchParams(window.location.search).get('p') || '';
+          // Build checkout URL: priority = URL params > default config
+          var product_id = new URLSearchParams(window.location.search).get('p') || DEFAULT_PRODUCT_ID;
           var affiliate_id = new URLSearchParams(window.location.search).get('a') || '';
           var live_url = 'https://app.earnerspay.com/checkout'; 
           var checkout_link = live_url + '?p=' + encodeURIComponent(product_id) + (affiliate_id ? '&a=' + encodeURIComponent(affiliate_id) : '');

@@ -10,12 +10,12 @@ export const DEFAULT_PRODUCT_CONFIG = {
   meta: {
     brandName: 'AI Profound Potential Secrets ',
     brandTagline: 'Practical AI Engineering & Product Launch',
-    priceFormatted: '10,000',
+    priceFormatted: '10,500',
     currencySymbol: '₦',
     showCurrencySymbol: true,
     checkoutSupportNote: 'Secure checkout • Instant portal & community access',
     // EarnersPay configuration
-    earnersPayProductId: 'EP_AI_BUILDER_ACADEMY', // Replace with actual product ID from EarnersPay
+    earnersPayProductId: 'epr-689129', // Correct product ID from EarnersPay
     earnersPayAffiliateId: '', // Optional: affiliate ID for tracking
   },
   brand: {
@@ -24,10 +24,10 @@ export const DEFAULT_PRODUCT_CONFIG = {
     accentColors: ['#2563EB', '#7C3AED', '#3B82F6', '#9333EA'],
   },
   pricing: {
-    amount: '10,000',
+    amount: '10,500',
     currencySymbol: '₦',
     billingText: 'One-time payment • Lifetime updates & templates',
-    ctaPrimary: 'Enroll Now — ₦10,000',
+    ctaPrimary: 'Enroll Now — ₦10,500',
     ctaHero: 'Start Building',
   },
   heroSlides: [

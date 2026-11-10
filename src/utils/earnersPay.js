@@ -4,6 +4,8 @@
  */
 
 const EARNERSPAY_BASE_URL = 'https://app.earnerspay.com/checkout';
+// Default product ID - matches config in src/config/productConfig.js
+const DEFAULT_PRODUCT_ID = 'epr-689129';
 
 /**
  * Builds the EarnersPay checkout URL with product and affiliate parameters
@@ -14,8 +16,8 @@ const EARNERSPAY_BASE_URL = 'https://app.earnerspay.com/checkout';
 export function buildEarnersPayCheckoutUrl(config, urlParams = new URLSearchParams(window.location.search)) {
   const meta = config?.meta || {};
   
-  // Priority: URL params > Config defaults
-  const productId = urlParams.get('p') || meta.earnersPayProductId || '';
+  // Priority: URL params > Config defaults > Hardcoded default
+  const productId = urlParams.get('p') || meta.earnersPayProductId || DEFAULT_PRODUCT_ID || '';
   const affiliateId = urlParams.get('a') || meta.earnersPayAffiliateId || '';
   
   if (!productId) {
